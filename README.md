@@ -1,0 +1,89 @@
+# Next.js App
+
+Projeto Next.js configurado com TypeScript, Tailwind CSS e Shadcn/UI para aplicações de grande escala.
+
+## 🚀 Tecnologias
+
+- **Next.js 14** - Framework React com App Router
+- **TypeScript** - Tipagem estática
+- **Tailwind CSS** - Estilização utilitária
+- **Shadcn/UI** - Componentes UI acessíveis
+- **Supabase** - Backend as a Service
+
+## 📁 Estrutura de Pastas
+
+```
+my-nextjs-app/
+├── app/                    # App Router (Next.js 14)
+│   ├── layout.tsx         # Layout raiz
+│   ├── page.tsx           # Página inicial
+│   └── globals.css        # Estilos globais
+├── components/            # Componentes reutilizáveis
+│   ├── ui/               # Componentes Shadcn/UI
+│   └── ...               # Outros componentes
+├── features/             # Features organizadas por domínio
+│   └── ...               # Cada feature com seus componentes, hooks, etc
+├── lib/                  # Utilitários e configurações
+│   ├── supabase/         # Clientes Supabase
+│   └── utils.ts          # Funções utilitárias
+├── hooks/                # Custom React Hooks
+├── types/                # Definições de tipos TypeScript
+├── public/               # Arquivos estáticos
+└── ...                   # Arquivos de configuração
+```
+
+## 🛠️ Instalação
+
+1. Instale as dependências:
+```bash
+npm install
+```
+
+2. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env.local
+```
+
+3. Preencha as variáveis no arquivo `.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
+SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
+```
+
+## 🚦 Scripts Disponíveis
+
+- `npm run dev` - Inicia o servidor de desenvolvimento
+- `npm run build` - Cria build de produção
+- `npm run start` - Inicia o servidor de produção
+- `npm run lint` - Executa o linter
+- `npm run type-check` - Verifica tipos TypeScript
+
+## 📦 Adicionando Componentes Shadcn/UI
+
+Para adicionar novos componentes do Shadcn/UI:
+
+```bash
+npx shadcn-ui@latest add [component-name]
+```
+
+## 🔐 Configuração Supabase
+
+O projeto está configurado com três clientes Supabase:
+
+1. **Client** (`lib/supabase/client.ts`) - Para uso no cliente
+2. **Server** (`lib/supabase/server.ts`) - Para uso em Server Components
+3. **Middleware** (`lib/supabase/middleware.ts`) - Para autenticação em rotas
+
+## 📝 Próximos Passos
+
+1. Configure seu projeto no Supabase
+2. Adicione mais componentes do Shadcn/UI conforme necessário
+3. Organize features na pasta `features/`
+4. Configure autenticação e autorização
+5. Adicione testes (Jest, Vitest, etc)
+
+## 🤝 Contribuindo
+
+Este é um projeto template. Sinta-se livre para adaptar conforme suas necessidades.
+
