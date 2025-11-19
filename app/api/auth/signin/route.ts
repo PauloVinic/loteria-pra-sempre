@@ -37,16 +37,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    const response = NextResponse.json({ user: data.user ?? null })
+
     // Escreve os cookies coletados pelo client do supabase na resposta
     responseCookies.forEach(({ name, value, options }) => {
       try {
-        cookies().set({ name, value, ...options })
+        response.cookies.set({ name, value, ...options })
       } catch (err) {
         // ignorar problemas de set de cookie
       }
     })
 
-    return NextResponse.json({ user: data.user ?? null })
+    return response
   } catch (err: any) {
     console.error('API /api/auth/signin error:', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
