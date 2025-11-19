@@ -18,7 +18,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs'
-import { login, signup } from './actions'
+import { signup } from './actions'
 
 // Componente de Formulário de Login
 function LoginForm() {
@@ -29,27 +29,28 @@ function LoginForm() {
     e.preventDefault()
     setError(null)
     setIsPending(true)
-    
     const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
 
     try {
-      const result = await login(null, formData)
-      
-      if (result?.error) {
-        setError(result.error)
+      const res = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const json = await res.json()
+
+      if (!res.ok) {
+        setError(json.error ?? 'Erro ao autenticar')
         setIsPending(false)
-      } else {
-        // Login bem-sucedido - o redirect será tratado pelo Next.js
-        // Mas vamos forçar um refresh para garantir
-        window.location.href = '/dashboard'
-      }
-    } catch (err: any) {
-      // Redirects do Next.js lançam uma exceção especial
-      // Se for um redirect, não é um erro real
-      if (err?.digest?.startsWith('NEXT_REDIRECT')) {
-        // É um redirect, está tudo bem
         return
       }
+
+      // sucesso — cookies já foram escritos pela rota API
+      window.location.href = '/dashboard'
+    } catch (err) {
       console.error('Erro no login:', err)
       setError('Erro inesperado ao fazer login')
       setIsPending(false)

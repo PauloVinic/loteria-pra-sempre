@@ -1,28 +1,34 @@
-import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
+import { createServerClient as createSupabaseServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createServerClient() {
-  const cookieStore = await cookies()
+  const cookieStore = cookies()
 
   return createSupabaseServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // O método setAll foi chamado de um Server Component.
-            // Isso pode ser ignorado se houver middleware atualizando a sessão.
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // O método `set` foi chamado de um Server Component (onde cookies são somente leitura).
+            // Isso pode ser ignorado se você tiver um middleware atualizando a sessão.
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // O método `remove` foi chamado de um Server Component.
+            // Pode ser ignorado.
           }
         },
       },
-    } as any
+    }
   )
 }
