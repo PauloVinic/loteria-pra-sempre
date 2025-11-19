@@ -1,6 +1,6 @@
-# Next.js App
+# Loteria Pra Sempre
 
-Projeto Next.js configurado com TypeScript, Tailwind CSS e Shadcn/UI para aplicações de grande escala.
+Aplicação de loteria perpétua desenvolvida com Next.js 14, TypeScript, Supabase e Shadcn/UI.
 
 ## 🚀 Tecnologias
 
@@ -8,7 +8,8 @@ Projeto Next.js configurado com TypeScript, Tailwind CSS e Shadcn/UI para aplica
 - **TypeScript** - Tipagem estática
 - **Tailwind CSS** - Estilização utilitária
 - **Shadcn/UI** - Componentes UI acessíveis
-- **Supabase** - Backend as a Service
+- **Supabase** - Backend as a Service (PostgreSQL + Auth)
+- **PostgreSQL** - Banco de dados relacional
 
 ## 📁 Estrutura de Pastas
 
@@ -48,8 +49,12 @@ cp .env.example .env.local
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
-SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
+
+4. Execute o schema SQL no Supabase:
+   - Acesse o SQL Editor no Supabase
+   - Execute o arquivo `supabase/schema.sql`
 
 ## 🚦 Scripts Disponíveis
 
@@ -75,13 +80,23 @@ O projeto está configurado com três clientes Supabase:
 2. **Server** (`lib/supabase/server.ts`) - Para uso em Server Components
 3. **Middleware** (`lib/supabase/middleware.ts`) - Para autenticação em rotas
 
-## 📝 Próximos Passos
+## ✨ Funcionalidades
 
-1. Configure seu projeto no Supabase
-2. Adicione mais componentes do Shadcn/UI conforme necessário
-3. Organize features na pasta `features/`
-4. Configure autenticação e autorização
-5. Adicione testes (Jest, Vitest, etc)
+- ✅ Autenticação completa (Login/Signup)
+- ✅ Dashboard protegido com RLS
+- ✅ Sistema de carteira (wallets)
+- ✅ Bilhetes perpétuos
+- ✅ Sorteios mensais
+- ✅ Histórico de transações
+- ✅ Middleware de proteção de rotas
+
+## 📝 Estrutura do Banco de Dados
+
+O projeto inclui um schema SQL completo (`supabase/schema.sql`) com:
+- Tabelas: profiles, wallets, tickets, draws, transactions
+- Row Level Security (RLS) configurado
+- Triggers automáticos para criação de perfil e carteira
+- Funções de servidor para operações seguras
 
 ## 🤝 Contribuindo
 
