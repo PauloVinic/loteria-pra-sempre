@@ -2,15 +2,20 @@ import { createServerClient as createSupabaseServerClient, type CookieOptions } 
 import type { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+function getSupabaseEnvOrThrow() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables for server client')
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  }
+
+  return { supabaseUrl, supabaseAnonKey }
 }
 
 export async function createServerClient() {
   const cookieStore = cookies()
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseEnvOrThrow()
 
   return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -36,6 +41,8 @@ export async function createServerClient() {
 }
 
 export function createMiddlewareClient(request: NextRequest, response: NextResponse) {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseEnvOrThrow()
+
   return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       get(name: string) {

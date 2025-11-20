@@ -1,17 +1,21 @@
 import { createBrowserClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let browserClient: ReturnType<typeof createBrowserClient> | null = null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables for browser client')
+function getBrowserEnvOrThrow() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  }
+
+  return { supabaseUrl, supabaseAnonKey }
 }
-
-let browserClient: SupabaseClient | undefined
 
 export function createBrowserSupabaseClient() {
   if (!browserClient) {
+    const { supabaseUrl, supabaseAnonKey } = getBrowserEnvOrThrow()
     browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
   }
 
