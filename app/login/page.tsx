@@ -140,7 +140,7 @@ function SignupFields({ state }: { state: AuthActionState }) {
           minLength={6}
           disabled={pending}
         />
-        <p className="text-xs text-muted-foreground">Minimo de 6 caracteres</p>
+        <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
         {state.fieldErrors?.password && (
           <p className="text-sm text-destructive">{state.fieldErrors.password}</p>
         )}
@@ -175,7 +175,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-3xl font-bold">Loteria Pra Sempre</CardTitle>
-          <CardDescription>Entre ou crie sua conta para comecar</CardDescription>
+          <CardDescription>Entre ou crie sua conta para começar</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">

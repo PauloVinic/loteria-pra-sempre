@@ -13,7 +13,7 @@ export function parseAuthFormData(formData: FormData, options: ParseOptions = {}
   const fieldErrors: AuthFieldErrors = {}
 
   if (!email || !email.includes('@')) {
-    fieldErrors.email = 'Informe um email valido.'
+    fieldErrors.email = 'Informe um email válido.'
   }
 
   if (!password) {
@@ -50,7 +50,7 @@ export function mapSupabaseAuthError(error: AuthError): AuthActionState {
   if (normalizedMessage.includes('invalid login credentials')) {
     return {
       status: 'error',
-      message: 'Email ou senha invalidos.',
+      message: 'Email ou senha inválidos.',
     }
   }
 
@@ -63,6 +63,6 @@ export function mapSupabaseAuthError(error: AuthError): AuthActionState {
 
   return {
     status: 'error',
-    message: 'Nao foi possivel concluir a autenticacao. Tente novamente.',
+    message: 'Não foi possível concluir a autenticação. Tente novamente.',
   }
 }

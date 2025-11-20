@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createMiddlewareClient } from '@/lib/supabase/server'
+import { isAdmin } from '@/lib/auth/is-admin'
 
-const PROTECTED_PREFIXES = ['/dashboard']
+const PROTECTED_PREFIXES = ['/dashboard', '/admin']
 const AUTH_REDIRECT_PATHS = ['/login', '/']
 const STATIC_EXTENSIONS = /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i
 
@@ -27,6 +28,10 @@ export async function middleware(request: NextRequest) {
 
   if (!user && requiresAuth(pathname)) {
     return redirectWithCookies(request, response, '/login')
+  }
+
+  if (pathname.startsWith('/admin') && user && !isAdmin(user.email)) {
+    return redirectWithCookies(request, response, '/dashboard')
   }
 
   if (user && !authError && shouldRedirectAuthenticatedUser(pathname)) {

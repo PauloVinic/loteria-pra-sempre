@@ -153,33 +153,42 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 -- ============================================================================
 
 -- Política SELECT para profiles: usuário vê apenas seu próprio perfil
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
     ON public.profiles
     FOR SELECT
+    TO authenticated
     USING (auth.uid() = id);
 
 -- Política SELECT para wallets: usuário vê apenas sua própria carteira
+DROP POLICY IF EXISTS "Users can view own wallet" ON public.wallets;
 CREATE POLICY "Users can view own wallet"
     ON public.wallets
     FOR SELECT
+    TO authenticated
     USING (auth.uid() = user_id);
 
 -- Política SELECT para tickets: usuário vê apenas seus próprios bilhetes
+DROP POLICY IF EXISTS "Users can view own tickets" ON public.tickets;
 CREATE POLICY "Users can view own tickets"
     ON public.tickets
     FOR SELECT
+    TO authenticated
     USING (auth.uid() = user_id);
 
 -- Política SELECT para draws: todos podem ver sorteios (público)
+DROP POLICY IF EXISTS "Anyone can view draws" ON public.draws;
 CREATE POLICY "Anyone can view draws"
     ON public.draws
     FOR SELECT
     USING (true);
 
 -- Política SELECT para transactions: usuário vê apenas suas próprias transações
+DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions;
 CREATE POLICY "Users can view own transactions"
     ON public.transactions
     FOR SELECT
+    TO authenticated
     USING (auth.uid() = user_id);
 
 -- ============================================================================
@@ -188,6 +197,7 @@ CREATE POLICY "Users can view own transactions"
 
 -- Política INSERT para profiles: apenas via função de servidor (trigger)
 -- Não permitimos INSERT direto via API
+DROP POLICY IF EXISTS "Profiles can only be created by server function" ON public.profiles;
 CREATE POLICY "Profiles can only be created by server function"
     ON public.profiles
     FOR INSERT
@@ -195,6 +205,7 @@ CREATE POLICY "Profiles can only be created by server function"
 
 -- Política INSERT para wallets: apenas via função de servidor (trigger)
 -- Não permitimos INSERT direto via API
+DROP POLICY IF EXISTS "Wallets can only be created by server function" ON public.wallets;
 CREATE POLICY "Wallets can only be created by server function"
     ON public.wallets
     FOR INSERT
@@ -202,57 +213,69 @@ CREATE POLICY "Wallets can only be created by server function"
 
 -- Política INSERT para tickets: usuário pode criar seus próprios bilhetes
 -- (mas na prática será via função que valida saldo)
+DROP POLICY IF EXISTS "Users can create own tickets" ON public.tickets;
 CREATE POLICY "Users can create own tickets"
     ON public.tickets
     FOR INSERT
+    TO authenticated
     WITH CHECK (auth.uid() = user_id);
 
 -- Política INSERT para draws: apenas administradores (via função de servidor)
+DROP POLICY IF EXISTS "Draws can only be created by server function" ON public.draws;
 CREATE POLICY "Draws can only be created by server function"
     ON public.draws
     FOR INSERT
     WITH CHECK (false);
 
--- Política INSERT para transactions: apenas via função de servidor
--- Não permitimos INSERT direto via API (garante integridade)
-CREATE POLICY "Transactions can only be created by server function"
+-- Política INSERT para transactions: usuário cria apenas suas próprias transações
+DROP POLICY IF EXISTS "Transactions can only be created by server function" ON public.transactions;
+CREATE POLICY "Users can create own transactions"
     ON public.transactions
     FOR INSERT
-    WITH CHECK (false);
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================================
 -- POLÍTICAS RLS - UPDATE
 -- ============================================================================
 
 -- Política UPDATE para profiles: usuário pode atualizar apenas seu próprio perfil
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
     ON public.profiles
     FOR UPDATE
+    TO authenticated
     USING (auth.uid() = id)
     WITH CHECK (auth.uid() = id);
 
--- Política UPDATE para wallets: BLOQUEADO via API
--- O saldo só pode ser atualizado via função de servidor
-CREATE POLICY "Wallets cannot be updated via API"
+-- Política UPDATE para wallets: usuário pode atualizar apenas sua própria carteira
+DROP POLICY IF EXISTS "Wallets cannot be updated via API" ON public.wallets;
+CREATE POLICY "Users can update own wallet"
     ON public.wallets
     FOR UPDATE
-    USING (false);
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- Política UPDATE para tickets: usuário pode atualizar apenas seus próprios bilhetes
--- (mas na prática mudanças de status serão via função de servidor)
+-- (mudanças de status via funções seguras)
+DROP POLICY IF EXISTS "Users can update own tickets" ON public.tickets;
 CREATE POLICY "Users can update own tickets"
     ON public.tickets
     FOR UPDATE
+    TO authenticated
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
 -- Política UPDATE para draws: apenas via função de servidor
+DROP POLICY IF EXISTS "Draws can only be updated by server function" ON public.draws;
 CREATE POLICY "Draws can only be updated by server function"
     ON public.draws
     FOR UPDATE
     USING (false);
 
--- Política UPDATE para transactions: BLOQUEADO (tabela imutável)
+-- Política UPDATE para transactions: tabela imutável (sem UPDATE)
+DROP POLICY IF EXISTS "Transactions are immutable" ON public.transactions;
 CREATE POLICY "Transactions are immutable"
     ON public.transactions
     FOR UPDATE
@@ -263,7 +286,6 @@ CREATE POLICY "Transactions are immutable"
 -- ============================================================================
 
 -- DELETE geralmente não é permitido para manter integridade histórica
--- O cascade do banco de dados cuida da exclusão quando o usuário é deletado
 
 -- ============================================================================
 -- FUNÇÕES DE SERVIDOR
@@ -323,7 +345,7 @@ BEGIN
     WHERE user_id = p_user_id
     RETURNING balance INTO v_new_balance;
 
-    -- Verifica se o saldo ficou negativo (a constraint também protege, mas é bom verificar)
+    -- Verifica se o saldo ficou negativo (a constraint também protege)
     IF v_new_balance < 0 THEN
         RAISE EXCEPTION 'Insufficient balance. Current balance: %', v_new_balance;
     END IF;
@@ -424,10 +446,10 @@ CREATE TRIGGER update_wallets_updated_at
 
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
-GRANT SELECT ON public.wallets TO authenticated;
+GRANT SELECT, UPDATE ON public.wallets TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.tickets TO authenticated;
 GRANT SELECT ON public.draws TO authenticated;
-GRANT SELECT ON public.transactions TO authenticated;
+GRANT SELECT, INSERT ON public.transactions TO authenticated;
 
 -- Permite que funções de servidor executem operações necessárias
 GRANT ALL ON public.profiles TO service_role;
@@ -439,4 +461,3 @@ GRANT ALL ON public.transactions TO service_role;
 -- ============================================================================
 -- FIM DO SCHEMA
 -- ============================================================================
-
