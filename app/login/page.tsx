@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useFormState, useFormStatus } from 'react-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,53 +12,53 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import { signup } from './actions'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { AuthActionState } from '@/lib/auth/types'
+import { AUTH_ACTION_INITIAL_STATE } from '@/lib/auth/types'
+import { login, signup } from './actions'
 
-// Componente de Formulário de Login
-function LoginForm() {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, setIsPending] = useState(false)
+type AuthFormProps = {
+  state: AuthActionState
+  formAction: (formData: FormData) => void
+}
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setIsPending(true)
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-
-    try {
-      const res = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        setError(json.error ?? 'Erro ao autenticar')
-        setIsPending(false)
-        return
-      }
-
-      // sucesso — cookies já foram escritos pela rota API
-      window.location.href = '/dashboard'
-    } catch (err) {
-      console.error('Erro no login:', err)
-      setError('Erro inesperado ao fazer login')
-      setIsPending(false)
-    }
+function FormStatusMessage({ state }: { state: AuthActionState }) {
+  if (state.status !== 'error' || !state.message) {
+    return null
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive text-center font-medium">
+      {state.message}
+    </div>
+  )
+}
+
+function LoginForm({ state, formAction }: AuthFormProps) {
+  return (
+    <form action={formAction} className="space-y-4">
+      <LoginFields state={state} />
+      <FormStatusMessage state={state} />
+      <SubmitButton pendingLabel="Entrando..." idleLabel="Entrar" />
+    </form>
+  )
+}
+
+function SignupForm({ state, formAction }: AuthFormProps) {
+  return (
+    <form action={formAction} className="space-y-4">
+      <SignupFields state={state} />
+      <FormStatusMessage state={state} />
+      <SubmitButton pendingLabel="Criando conta..." idleLabel="Criar Conta" />
+    </form>
+  )
+}
+
+function LoginFields({ state }: { state: AuthActionState }) {
+  const { pending } = useFormStatus()
+
+  return (
+    <>
       <div className="space-y-2">
         <Label htmlFor="login-email">Email</Label>
         <Input
@@ -68,8 +68,11 @@ function LoginForm() {
           placeholder="seu@email.com"
           required
           autoComplete="email"
-          disabled={isPending}
+          disabled={pending}
         />
+        {state.fieldErrors?.email && (
+          <p className="text-sm text-destructive">{state.fieldErrors.email}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="login-password">Senha</Label>
@@ -77,58 +80,24 @@ function LoginForm() {
           id="login-password"
           name="password"
           type="password"
-          placeholder="••••••••"
+          placeholder="********"
           required
           autoComplete="current-password"
-          disabled={isPending}
+          disabled={pending}
         />
-      </div>
-      {error && (
-        <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive text-center font-medium">
-          {error}
-        </div>
-      )}
-      <Button type="submit" className="w-full" disabled={isPending}>
-        {isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Entrando...
-          </>
-        ) : (
-          'Entrar'
+        {state.fieldErrors?.password && (
+          <p className="text-sm text-destructive">{state.fieldErrors.password}</p>
         )}
-      </Button>
-    </form>
+      </div>
+    </>
   )
 }
 
-// Componente de Formulário de Cadastro
-function SignupForm() {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, setIsPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setIsPending(true)
-    
-    const formData = new FormData(e.currentTarget)
-
-    try {
-      const result = await signup(null, formData)
-      
-      if (result?.error) {
-        setError(result.error)
-        setIsPending(false)
-      }
-    } catch (err) {
-      console.error(err)
-      setIsPending(false)
-    }
-  }
+function SignupFields({ state }: { state: AuthActionState }) {
+  const { pending } = useFormStatus()
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <>
       <div className="space-y-2">
         <Label htmlFor="signup-name">Nome Completo</Label>
         <Input
@@ -136,9 +105,13 @@ function SignupForm() {
           name="fullName"
           type="text"
           placeholder="Seu nome completo"
+          required
           autoComplete="name"
-          disabled={isPending}
+          disabled={pending}
         />
+        {state.fieldErrors?.fullName && (
+          <p className="text-sm text-destructive">{state.fieldErrors.fullName}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-email">Email</Label>
@@ -149,8 +122,11 @@ function SignupForm() {
           placeholder="seu@email.com"
           required
           autoComplete="email"
-          disabled={isPending}
+          disabled={pending}
         />
+        {state.fieldErrors?.email && (
+          <p className="text-sm text-destructive">{state.fieldErrors.email}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-password">Senha</Label>
@@ -158,58 +134,60 @@ function SignupForm() {
           id="signup-password"
           name="password"
           type="password"
-          placeholder="••••••••"
+          placeholder="********"
           required
           autoComplete="new-password"
           minLength={6}
-          disabled={isPending}
+          disabled={pending}
         />
-        <p className="text-xs text-muted-foreground">
-          Mínimo de 6 caracteres
-        </p>
-      </div>
-      {error && (
-        <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive text-center font-medium">
-          {error}
-        </div>
-      )}
-      <Button type="submit" className="w-full" disabled={isPending}>
-        {isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Criando conta...
-          </>
-        ) : (
-          'Criar Conta'
+        <p className="text-xs text-muted-foreground">Minimo de 6 caracteres</p>
+        {state.fieldErrors?.password && (
+          <p className="text-sm text-destructive">{state.fieldErrors.password}</p>
         )}
-      </Button>
-    </form>
+      </div>
+    </>
+  )
+}
+
+function SubmitButton({ pendingLabel, idleLabel }: { pendingLabel: string; idleLabel: string }) {
+  const { pending } = useFormStatus()
+
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {pendingLabel}
+        </>
+      ) : (
+        idleLabel
+      )}
+    </Button>
   )
 }
 
 export default function LoginPage() {
+  const [loginState, loginAction] = useFormState(login, AUTH_ACTION_INITIAL_STATE)
+  const [signupState, signupAction] = useFormState(signup, AUTH_ACTION_INITIAL_STATE)
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-900 dark:to-slate-800">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">
-            Loteria Pra Sempre
-          </CardTitle>
-          <CardDescription>
-            Entre ou crie sua conta para começar
-          </CardDescription>
+          <CardTitle className="text-3xl font-bold">Loteria Pra Sempre</CardTitle>
+          <CardDescription>Entre ou crie sua conta para comecar</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="mb-4 grid w-full grid-cols-2">
               <TabsTrigger value="login">Entrar</TabsTrigger>
               <TabsTrigger value="signup">Criar Conta</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              <LoginForm />
+              <LoginForm state={loginState} formAction={loginAction} />
             </TabsContent>
             <TabsContent value="signup">
-              <SignupForm />
+              <SignupForm state={signupState} formAction={signupAction} />
             </TabsContent>
           </Tabs>
         </CardContent>

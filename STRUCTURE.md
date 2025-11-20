@@ -123,7 +123,7 @@ Use path aliases configurados no `tsconfig.json`:
 // ✅ Bom
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase/client'
+import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 
 // ❌ Evite
 import { Button } from '../../../components/ui/button'

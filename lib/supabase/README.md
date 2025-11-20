@@ -1,17 +1,20 @@
-# Configuração Supabase
+# Configuracao Supabase
 
-Este diretório contém os clientes Supabase configurados para diferentes contextos.
+Este diretorio contem os clientes Supabase configurados para diferentes contextos.
 
-## Clientes Disponíveis
+## Clientes Disponiveis
 
 ### 1. Client (`client.ts`)
 Para uso em componentes do cliente (Client Components).
 
 ```tsx
 'use client'
-import { supabase } from '@/lib/supabase/client'
+import { useMemo } from 'react'
+import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 
 export function MyComponent() {
+  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+
   const handleClick = async () => {
     const { data, error } = await supabase.from('table').select('*')
   }
@@ -33,13 +36,13 @@ export default async function ServerComponent() {
 ```
 
 ### 3. Middleware (`middleware.ts`)
-Para autenticação e proteção de rotas no middleware.
+Para autenticacao e protecao de rotas no middleware.
 
-O middleware está configurado para redirecionar usuários não autenticados para `/login`.
+O middleware esta configurado para redirecionar usuarios nao autenticados para `/login` e utiliza `createMiddlewareClient` definido em `lib/supabase/server.ts`.
 
-## Variáveis de Ambiente
+## Variaveis de Ambiente
 
-Certifique-se de configurar as seguintes variáveis no arquivo `.env.local`:
+Certifique-se de configurar as seguintes variaveis no arquivo `.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase

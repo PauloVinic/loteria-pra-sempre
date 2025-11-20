@@ -77,8 +77,8 @@ npx shadcn-ui@latest add [component-name]
 O projeto está configurado com três clientes Supabase:
 
 1. **Client** (`lib/supabase/client.ts`) - Para uso no cliente
-2. **Server** (`lib/supabase/server.ts`) - Para uso em Server Components
-3. **Middleware** (`lib/supabase/middleware.ts`) - Para autenticação em rotas
+2. **Server** (`lib/supabase/server.ts`) - Para uso em Server Components e Middleware Helpers
+3. **Middleware** (`middleware.ts`) - Para autenticação em rotas
 
 ## ✨ Funcionalidades
 

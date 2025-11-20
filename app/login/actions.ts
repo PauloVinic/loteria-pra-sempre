@@ -2,29 +2,27 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { buildFieldErrorState, mapSupabaseAuthError, parseAuthFormData } from '@/lib/auth/helpers'
+import type { AuthActionState } from '@/lib/auth/types'
 import { createServerClient } from '@/lib/supabase/server'
 
-export async function login(prevState: any, formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+// TODO: Nao existe app/signup/page.tsx; o fluxo de cadastro permanece integrado em /login.
 
-  if (!email || !password) {
-    return { error: 'Email e senha são obrigatórios' }
+export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const { email, password, fieldErrors } = parseAuthFormData(formData)
+
+  if (fieldErrors) {
+    return buildFieldErrorState(fieldErrors)
   }
 
   const supabase = await createServerClient()
-
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
   if (error) {
-    return { error: error.message }
-  }
-
-  if (!data.user) {
-    return { error: 'Erro ao autenticar usuário' }
+    return mapSupabaseAuthError(error)
   }
 
   revalidatePath('/', 'layout')
@@ -32,13 +30,16 @@ export async function login(prevState: any, formData: FormData) {
   redirect('/dashboard')
 }
 
-export async function signup(prevState: any, formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const fullName = formData.get('fullName') as string
+export async function signup(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const { email, password, fullName, fieldErrors } = parseAuthFormData(formData, {
+    requireFullName: true,
+  })
+
+  if (fieldErrors) {
+    return buildFieldErrorState(fieldErrors)
+  }
 
   const supabase = await createServerClient()
-
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -50,9 +51,10 @@ export async function signup(prevState: any, formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return mapSupabaseAuthError(error)
   }
 
   revalidatePath('/', 'layout')
+  revalidatePath('/dashboard', 'layout')
   redirect('/dashboard')
 }

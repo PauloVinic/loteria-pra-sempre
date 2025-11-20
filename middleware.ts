@@ -1,84 +1,74 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import { createMiddlewareClient } from '@/lib/supabase/server'
+
+const PROTECTED_PREFIXES = ['/dashboard']
+const AUTH_REDIRECT_PATHS = ['/login', '/']
+const STATIC_EXTENSIONS = /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  if (shouldBypass(pathname)) {
+    return NextResponse.next()
+  }
+
   const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
-  });
+  })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: Record<string, any> = {}) {
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: Record<string, any> = {}) {
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-            maxAge: 0,
-          });
-        },
-      },
-    }
-  );
-
+  const supabase = createMiddlewareClient(request, response)
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname;
-
-  // Ignora arquivos estáticos e rotas do Next.js
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".")
-  ) {
-    return response;
+  if (!user && requiresAuth(pathname)) {
+    return redirectWithCookies(request, response, '/login')
   }
 
-  // Regras de Proteção
-  // Se não tem user e está tentando acessar dashboard -> redireciona para login
-  if (!user && pathname.startsWith("/dashboard")) {
-    const url = new URL("/login", request.url);
-    const redirectResponse = NextResponse.redirect(url);
-    // Copia os cookies atualizados
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
+  if (user && !authError && shouldRedirectAuthenticatedUser(pathname)) {
+    return redirectWithCookies(request, response, '/dashboard')
   }
 
-  // Se tem user e está em /login ou / -> redireciona para dashboard
-  if (user && !authError && (pathname === "/login" || pathname === "/")) {
-    const url = new URL("/dashboard", request.url);
-    const redirectResponse = NextResponse.redirect(url);
-    // Copia os cookies atualizados
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
+  return response
+}
+
+function shouldBypass(pathname: string) {
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
+    return true
   }
 
-  return response;
+  if (STATIC_EXTENSIONS.test(pathname) || pathname.includes('.')) {
+    return true
+  }
+
+  return false
+}
+
+function requiresAuth(pathname: string) {
+  return PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+function shouldRedirectAuthenticatedUser(pathname: string) {
+  return AUTH_REDIRECT_PATHS.includes(pathname)
+}
+
+function redirectWithCookies(request: NextRequest, response: NextResponse, targetPath: string) {
+  const url = new URL(targetPath, request.url)
+  const redirectResponse = NextResponse.redirect(url)
+
+  response.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie.name, cookie.value)
+  })
+
+  return redirectResponse
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}
