@@ -1,3 +1,4 @@
+import { cookies, headers } from 'next/headers'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -9,13 +10,23 @@ import {
 import { LogOut, Ticket, Wallet } from 'lucide-react'
 import { logout } from './actions'
 import { PurchaseForm } from './purchase-form'
-import {
-  getDashboardInitialData,
-  getRecentDraws,
-  getUserTickets,
-  getUserTransactions,
-} from './queries'
-import { createServerClient } from '@/lib/supabase/server'
+
+type WalletResponse = { balance: string | number }
+type PassItem = {
+  id: string
+  ticket_type: 'P10' | 'P50' | 'P100'
+  face_value: number
+  status: string
+  purchase_date: string
+}
+type PassesResponse = { items: PassItem[] }
+type TransactionItem = {
+  id: number
+  type: string
+  amount: number
+  created_at: string
+}
+type TransactionsResponse = { items: TransactionItem[] }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', {
@@ -36,37 +47,52 @@ function formatDate(dateString: string | null) {
 }
 
 export default async function DashboardPage() {
-  const [{ profile, wallet, ticketsCount }, supabase] = await Promise.all([
-    getDashboardInitialData(),
-    createServerClient(),
-  ])
+  const origin =
+    headers().get('x-forwarded-host')
+      ? `${headers().get('x-forwarded-proto') ?? 'https'}://${headers().get('x-forwarded-host')}`
+      : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const cookieHeader = cookies().toString()
 
-  const userId = profile?.id ?? user?.id ?? null
+  let wallet: WalletResponse | null = null
+  let passes: PassItem[] = []
+  let transactions: TransactionItem[] = []
+  let loadError: string | null = null
 
-  const [userTickets, userTransactions, draws] = userId
-    ? await Promise.all([
-        getUserTickets(userId),
-        getUserTransactions(userId),
-        getRecentDraws(),
-      ])
-    : [[], [], []]
+  try {
+    const [walletRes, passesRes, transactionsRes] = await Promise.all([
+      fetch(new URL('/api/wallet/me', origin), {
+        cache: 'no-store',
+        headers: { cookie: cookieHeader },
+      }),
+      fetch(new URL('/api/passes/me', origin), {
+        cache: 'no-store',
+        headers: { cookie: cookieHeader },
+      }),
+      fetch(new URL('/api/transactions/me', origin), {
+        cache: 'no-store',
+        headers: { cookie: cookieHeader },
+      }),
+    ])
 
-  const userTicketIds = new Set(userTickets.map((ticket) => ticket.id))
-  const drawsWithWinnerFlag = draws.map((draw) => ({
-    ...draw,
-    isCurrentUserWinner: draw.winnerTicketId ? userTicketIds.has(draw.winnerTicketId) : false,
-  }))
+    if (!walletRes.ok) throw new Error('Falha ao carregar saldo.')
+    if (!passesRes.ok) throw new Error('Falha ao carregar passes.')
+    if (!transactionsRes.ok) throw new Error('Falha ao carregar transações.')
 
-  if (!profile || !wallet) {
-    console.error('[Dashboard] Perfil ou carteira ausentes apos carregamento inicial.')
+    const walletData = (await walletRes.json()) as WalletResponse
+    const passesData = (await passesRes.json()) as PassesResponse
+    const transactionsData = (await transactionsRes.json()) as TransactionsResponse
+
+    wallet = walletData
+    passes = passesData.items ?? []
+    transactions = transactionsData.items ?? []
+  } catch (error) {
+    console.error('[Dashboard] Erro ao carregar dados do dashboard', error)
+    loadError = 'Não foi possível carregar seus dados agora. Tente novamente mais tarde.'
   }
 
-  const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Visitante'
-  const balanceDisplay = formatCurrency(wallet?.balance ?? 0)
+  const balanceNumber = Number(wallet?.balance ?? 0)
+  const balanceDisplay = formatCurrency(balanceNumber)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -74,9 +100,6 @@ export default async function DashboardPage() {
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-2xl font-bold">Loteria Pra Sempre</h1>
-            <p className="text-sm text-muted-foreground">
-              Ola, <span className="font-semibold">{displayName}</span>
-            </p>
           </div>
           <form action={logout}>
             <Button type="submit" variant="outline" size="sm">
@@ -87,13 +110,11 @@ export default async function DashboardPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {!profile || !wallet ? (
+        {loadError ? (
           <Card>
             <CardHeader>
-              <CardTitle>Dados indisponiveis</CardTitle>
-              <CardDescription>
-                Nao encontramos seus dados de perfil ou carteira. Tente sair e entrar novamente.
-              </CardDescription>
+              <CardTitle>Dados indisponíveis</CardTitle>
+              <CardDescription>{loadError}</CardDescription>
             </CardHeader>
           </Card>
         ) : (
@@ -101,16 +122,31 @@ export default async function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="md:col-span-2">
                 <CardHeader>
-                  <CardDescription>Saldo disponivel</CardDescription>
+                  <CardDescription>Saldo de prêmios</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2">
                     <span className="text-5xl font-bold text-primary">{balanceDisplay}</span>
                   </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {balanceNumber > 0
+                      ? 'Esse valor veio dos prêmios que você ganhou. Você pode pedir saque ou usar em novos passes.'
+                      : 'Aqui aparece o que você já ganhou nos sorteios. Assim que pintar um prêmio, o saldo vem pra cá.'}
+                  </p>
                   <div className="mt-6">
-                    <Button size="lg">
-                      <Wallet className="mr-2 h-5 w-5" /> Adicionar Saldo
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      disabled={balanceNumber <= 0}
+                      title={balanceNumber <= 0 ? 'Você ainda não tem prêmios para sacar.' : 'Em breve: solicitar saque'}
+                    >
+                      <Wallet className="mr-2 h-5 w-5" /> Pedir saque
                     </Button>
+                    {balanceNumber <= 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Você ainda não tem prêmios para sacar.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -119,22 +155,16 @@ export default async function DashboardPage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Ticket className="h-5 w-5 text-primary" />
-                    <CardTitle>Meus Bilhetes</CardTitle>
+                    <CardTitle>Comprar passes</CardTitle>
                   </div>
-                  <CardDescription>Bilhetes ativos</CardDescription>
+                  <CardDescription>
+                    Você escolhe quantos passes quer de cada tipo e a gente cuida do resto.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {ticketsCount === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Voce ainda nao possui bilhetes. Em breve voce podera comprar bilhetes perpetuos
-                      aqui.
-                    </p>
-                  ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold">{ticketsCount}</span>
-                      <span className="text-sm text-muted-foreground">ativos</span>
-                    </div>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Escolha quantos passes quer de cada tipo e finalize direto. O saldo de prêmios entra depois, quando você ganhar.
+                  </p>
                   <div className="pt-2 border-t">
                     <PurchaseForm />
                   </div>
@@ -145,24 +175,24 @@ export default async function DashboardPage() {
             <div className="grid gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle>Historico de bilhetes</CardTitle>
-                  <CardDescription>Ultimos bilhetes criados</CardDescription>
+                  <CardTitle>Historico de passes</CardTitle>
+                  <CardDescription>Ultimos passes criados</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {userTickets.length === 0 ? (
+                  {passes.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Voce ainda nao possui bilhetes registrados.
+                      Voce ainda nao possui passes registrados.
                     </p>
                   ) : (
                     <ul className="space-y-3">
-                      {userTickets.map((ticket) => (
+                      {passes.map((ticket) => (
                         <li key={ticket.id} className="rounded-md border p-3">
                           <div className="text-sm font-semibold truncate">{ticket.id}</div>
                           <div className="text-xs text-muted-foreground">
                             Status: {ticket.status ?? 'indefinido'}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Criado em: {formatDate(ticket.purchaseDate ?? ticket.createdAt)}
+                            Criado em: {formatDate((ticket as any).purchaseDate ?? ticket.purchase_date)}
                           </div>
                         </li>
                       ))}
@@ -177,13 +207,13 @@ export default async function DashboardPage() {
                   <CardDescription>Movimentacoes recentes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {userTransactions.length === 0 ? (
+                  {transactions.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Voce ainda nao possui transacoes registradas.
                     </p>
                   ) : (
                     <ul className="space-y-3">
-                      {userTransactions.map((tx) => (
+                      {transactions.map((tx) => (
                         <li key={tx.id} className="rounded-md border p-3">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-semibold">{tx.type}</span>
@@ -192,49 +222,11 @@ export default async function DashboardPage() {
                                 tx.amount < 0 ? 'text-destructive' : 'text-emerald-600'
                               }`}
                             >
-                              {formatCurrency(tx.amount)}
+                              {formatCurrency(tx.amount ?? 0)}
                             </span>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {formatDate(tx.createdAt)}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle>Sorteios recentes</CardTitle>
-            <CardDescription>Ultimos sorteios realizados</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {drawsWithWinnerFlag.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Ainda nao foram realizados sorteios.
-                    </p>
-                  ) : (
-                    <ul className="space-y-3">
-                      {drawsWithWinnerFlag.map((draw) => (
-                        <li key={draw.id} className="rounded-md border p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">
-                              {formatCurrency(draw.prizeAmount)}
-                            </span>
-                            {draw.isCurrentUserWinner ? (
-                              <span className="text-xs font-semibold text-emerald-600">
-                                Voce venceu
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                {draw.status ?? ''}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Data: {formatDate(draw.drawDate ?? draw.completedAt)}
+                            {formatDate((tx as any).createdAt ?? tx.created_at)}
                           </div>
                         </li>
                       ))}
